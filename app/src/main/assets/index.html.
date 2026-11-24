@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pixel Palette</title>
+<style>
+  :root {
+    --primary: #6750A4; --onPrimary: #FFFFFF;
+    --primaryContainer: #EADDFF; --onPrimaryContainer: #21005D;
+    --secondaryContainer: #E8DEF8; --onSecondaryContainer: #1D192B;
+    --tertiaryContainer: #FFD8E4; --onTertiaryContainer: #31111D;
+    --surface: #FEF7FF; --surfaceContainer: #F3EDF7; --surfaceContainerHigh: #ECE6F0;
+    --onSurface: #1D1B20; --onSurfaceVariant: #49454F; --outline: #79747E;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 16px 16px 40px;
+    font-family: system-ui, -apple-system, Roboto, sans-serif;
+    background: var(--surface); color: var(--onSurface);
+  }
+  h1 { font-size: 28px; font-weight: 400; margin: 8px 4px 2px; }
+  .sub { color: var(--onSurfaceVariant); font-size: 14px; margin: 0 4px 16px; }
+  .card {
+    background: var(--surfaceContainer); border-radius: 28px;
+    padding: 16px; margin: 12px 0;
+  }
+  #drop {
+    background: var(--primaryContainer); color: var(--onPrimaryContainer);
+    border-radius: 28px; padding: 22px 16px; text-align: center;
+    font-weight: 500; cursor: pointer;
+  }
+  #preview {
+    display: none; width: 100%; max-height: 260px; object-fit: contain;
+    border-radius: 24px; margin-top: 12px;
+  }
+  #icon { width: 140px; height: 140px; display: block; margin: 0 auto; }
+  .section-title { font-size: 14px; color: var(--onSurfaceVariant); margin: 4px 4px 8px; }
+  .row {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--surfaceContainerHigh); border-radius: 20px;
+    padding: 10px 12px; margin: 6px 0;
+  }
+  .sw {
+    width: 44px; height: 44px; border-radius: 14px; flex-shrink: 0;
+    border: 1px solid var(--outline);
+  }
+  .lbl { flex: 1; font-size: 14px; }
+  .code { font-family: monospace; font-size: 13px; color: var(--onSurfaceVariant); margin-top: 2px; }
+  button {
+    background: var(--primary); color: var(--onPrimary);
+    border: 0; border-radius: 20px; padding: 10px 14px;
+    font-size: 13px; font-weight: 500; cursor: pointer;
+  }
+  #toast {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: var(--onSurface); color: var(--surface);
+    padding: 10px 18px; border-radius: 20px; font-size: 14px;
+    opacity: 0; transition: opacity .3s; pointer-events: none;
+  }
+  #toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<h1>Pixel Palette</h1>
+<div class="sub">Цвета интерфейса берутся из обоев</div>
+
+<div class="card">
+  <div id="drop">Нажми, чтобы выбрать обои</div>
+  <input type="file" id="file" accept="image/*" hidden>
+  <img id="preview" alt="">
+</div>
+
+<div class="card">
+  <svg id="icon" viewBox="0 0 1220 1220" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <clipPath id="sq"><rect x="0" y="0" width="1220" height="1220" rx="300"/></clipPath>
+    </defs>
+    <rect id="bg" x="0" y="0" width="1220" height="1220" rx="300" fill="#524479"/>
+    <g clip-path="url(#sq)">
+      <circle id="sun" cx="297" cy="280" r="120" fill="#9d8ccc"/>
+      <path id="mountain" fill="#9d8ccc" d="M0,845 L745,460 Q760,458 790,470 L1220,700 L1220,920 Q1220,1220 920,1220 L300,1220 Q0,1220 0,920 Z"/>
+      <path id="accent" fill="#d5c2fb" d="M745,462 Q770,458 800,470 L1220,700 L1220,930 Q1215,1040 1160,1095 L1150,1097 L790,800 Q748,755 745,690 Z"/>
+    </g>
+  </svg>
+</div>
+
+<div class="section-title">Иконка</div>
+<div class="card" id="iconColors"></div>
+
+<div class="section-title">Material You · схема Pixel</div>
+<div class="card" id="roles"></div>
+
+<div id="toast"></div>
+
+<script>
+const drop = document.getElementById('drop');
+const fileInput = document.getElementById('file');
+const preview = document.getElementById('preview');
+
+drop.onclick = () => fileInput.click();
+fileInput.onchange = e => handle(e.target.files[0]);
+drop.ondragover = e => e.preventDefault();
+drop.ondrop = e => { e.preventDefault(); handle(e.dataTransfer.files[0]); };
+
+function handle(file) {
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  preview.src = url;
+  preview.style.display = 'block';
+
+  const img = new Image();
+  img.onload = () => {
+    const S = 120;
+    const r = Math.min(S / img.width, S / img.height);
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(img.width * r));
+    c.height = Math.max(1, Math.round(img.height * r));
+    const ctx = c.getContext('2d');
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+
+    const data = ctx.getImageData(0, 0, c.width, c.height).data;
+    const px = [];
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i + 3] < 128) continue;
+      px.push([data[i], data[i + 1], data[i + 2]]);
+    }
+
+    const pal = makePalette(px);
+    const icons = pick(pal);
+    const seed = seedFrom(pal);
+    const roles = buildScheme(seed);
+    applyScheme(roles);
+    showIcon(icons);
+    showIconColors(icons);
+    showRoles(roles);
+  };
+  img.src = url;
+}
+
+// k-means: основные цвета картинки
+function makePalette(px) {
+  const K = 6;
+  let cents = [];
+  for (let i = 0; i < K; i++) cents.push(px[Math.floor(Math.random() * px.length)].slice());
+  let groups = [];
+  for (let it = 0; it < 10; it++) {
+    groups = Array.from({ length: K }, () => []);
+    for (const p of px) {
+      let best = 0, bd = Infinity;
+      for (let k = 0; k < K; k++) {
+        const d = (p[0] - cents[k][0]) ** 2 + (p[1] - cents[k][1]) ** 2 + (p[2] - cents[k][2]) ** 2;
+        if (d < bd) { bd = d; best = k; }
+      }
+      groups[best].push(p);
+    }
+    cents = groups.map((g, k) =>
+      g.length ? [0, 1, 2].map(j => g.reduce((s, p) => s + p[j], 0) / g.length) : cents[k]
+    );
+  }
+  return groups
+    .map((g, k) => ({ rgb: cents[k].map(Math.round), count: g.length }))
+    .filter(c => c.count > 0);
+}
+
+function rgbToHsl([r, g, b]) {
+  r /= 255; g /= 255; b /= 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+  const l = (mx + mn) / 2;
+  let h = 0, s = 0;
+  if (mx !== mn) {
+    const d = mx - mn;
+    s = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn);
+    if (mx === r) h = (g - b) / d + (g < b ? 6 : 0);
+    else if (mx === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h *= 60;
+  }
+  return { h, s, l };
+}
+
+function hslToRgb(h, s, l) {
+  s /= 100; l /= 100;
+  const a = s * Math.min(l, 1 - l);
+  const f = n => {
+    const k = (n + h / 30) % 12;
+    return l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+  };
+  return [f(0), f(8), f(4)].map(v => Math.round(v * 255));
+}
+
+function toHex(rgb) {
+  return '#' + rgb.map(v => v.toString(16).padStart(2, '0')).join('').toUpperCase();
+}
+
+function tone(h, s, l) {
+  return toHex(hslToRgb(((h % 360) + 360) % 360, s, l));
+}
+
+function lighten(rgb, t) {
+  return rgb.map(v => Math.round(v + (255 - v) * t));
+}
+
+// Цвета иконки: фон — самый частый, иконка — самый насыщенный из остальных
+function pick(pal) {
+  const total = pal.reduce((s, c) => s + c.count, 0);
+  pal.forEach(c => {
+    Object.assign(c, rgbToHsl(c.rgb));
+    c.share = c.count / total;
+  });
+  const bg = [...pal].sort((a, b) => b.share - a.share)[0];
+  const rest = pal.filter(c => c !== bg);
+  const score = c => c.s * 0.7 + c.share * 0.3;
+  const icon = rest.length ? [...rest].sort((a, b) => score(b) - score(a))[0] : bg;
+  return {
+    bg: bg.rgb,
+    icon: icon.rgb,
+    icon2: lighten(icon.rgb, 0.35)
+  };
+}
+
+// Исходный цвет для схемы: самый насыщенный и заметный
+function seedFrom(pal) {
+  const total = pal.reduce((s, c) => s + c.count, 0);
+  const best = [...pal].sort((a, b) => {
+    const sa = rgbToHsl(a.rgb).s * (0.5 + a.count / total);
+    const sb = rgbToHsl(b.rgb).s * (0.5 + b.count / total);
+    return sb - sa;
+  })[0];
+  const hsl = rgbToHsl(best.rgb);
+  if (hsl.s < 0.12) return { h: 260, s: 40 };
+  return { h: hsl.h, s: Math.max(hsl.s * 100, 35) };
+}
+
+// Схема по мотивам Material You: тональные палитры одного оттенка
+function buildScheme({ h, s }) {
+  const sLow = Math.min(s * 0.3, 18);
+  const sMid = Math.min(s * 0.6, 40);
+  const tH = h + 60;
+  return {
+    primary:              tone(h, s, 40),
+    onPrimary:            '#FFFFFF',
+    primaryContainer:     tone(h, s, 90),
+    onPrimaryContainer:   tone(h, s, 10),
+    secondaryContainer:   tone(h, sLow, 90),
+    onSecondaryContainer: tone(h, sLow, 10),
+    tertiaryContainer:    tone(tH, sMid, 90),
+    onTertiaryContainer:  tone(tH, sMid, 10),
+    surface:              tone(h, 10, 98),
+    surfaceContainer:     tone(h, 10, 94),
+    surfaceContainerHigh: tone(h, 10, 92),
+    onSurface:            tone(h, 10, 10),
+    onSurfaceVariant:     tone(h, 8, 30),
+    outline:              tone(h, 8, 50)
+  };
+}
+
+// Перекрашиваем сам интерфейс страницы
+function applyScheme(roles) {
+  const root = document.documentElement.style;
+  Object.entries(roles).forEach(([k, v]) => {
+    root.setProperty('--' + k, v);
+  });
+}
+
+function showIcon(p) {
+  const bgHex = toHex(p.bg);
+  const iconHex = toHex(p.icon);
+  const icon2Hex = toHex(p.icon2);
+  document.getElementById('bg').setAttribute('fill', bgHex);
+  document.getElementById('sun').setAttribute('fill', icon2Hex);
+  document.getElementById('mountain').setAttribute('fill', icon2Hex);
+  document.getElementById('accent').setAttribute('fill', iconHex);
+}
+
+function row(name, hex) {
+  return `<div class="row">
+    <div class="sw" style="background:${hex}"></div>
+    <div class="lbl">${name}<div class="code">${hex}</div></div>
+    <button onclick="copy('${hex}')">Копировать</button>
+  </div>`;
+}
+
+function showIconColors(p) {
+  document.getElementById('iconColors').innerHTML =
+    row('Фон', toHex(p.bg)) +
+    row('Иконка', toHex(p.icon)) +
+    row('2-й цвет иконки', toHex(p.icon2));
+}
+
+function showRoles(r) {
+  const names = {
+    primary: 'Primary', onPrimary: 'On primary',
+    primaryContainer: 'Primary container', onPrimaryContainer: 'On primary container',
+    secondaryContainer: 'Secondary container', onSecondaryContainer: 'On secondary container',
+    tertiaryContainer: 'Tertiary container', onTertiaryContainer: 'On tertiary container',
+    surface: 'Surface', surfaceContainer: 'Surface container',
+    surfaceContainerHigh: 'Surface container high',
+    onSurface: 'On surface', onSurfaceVariant: 'On surface variant', outline: 'Outline'
+  };
+  document.getElementById('roles').innerHTML =
+    Object.entries(r).map(([k, hex]) => row(names[k] || k, hex)).join('');
+}
+
+function copy(hex) {
+  const done = () => {
+    const t = document.getElementById('toast');
+    t.textContent = 'Скопировано ' + hex;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 1200);
+  };
+  if (navigator.clipboard) navigator.clipboard.writeText(hex).then(done, done);
+  else done();
+}
+</script>
+</body>
+</html>
